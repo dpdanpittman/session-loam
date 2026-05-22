@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "session-loam"
+version = "0.1.0.dev0"
+description = "Memory-continuity substrate for agentic workflows. SQLite-backed, identity-scoped, tag + full-text retrieval, reinforce-on-retrieve. The fourth leg next to essence + swarm-lib + tribunal."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Dan Pittman" }]
+requires-python = ">=3.11"
+keywords = ["agents", "llm", "memory", "continuity", "claude", "ollama", "sqlite"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Database",
+]
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4", "pytest-cov>=4.1"]
+
+[project.urls]
+Homepage = "https://loam.mabus.ai/"
+Repository = "https://github.com/dpdanpittman/session-loam"
+Issues = "https://github.com/dpdanpittman/session-loam/issues"
+
+[project.scripts]
+loam-cli = "session_loam.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["session_loam*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
