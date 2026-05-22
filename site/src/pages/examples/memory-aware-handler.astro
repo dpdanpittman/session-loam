@@ -1,0 +1,113 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Memory-aware handler" description="A swarm-lib worker handler that recalls related prior runs before doing work, then writes the lesson back on completion. Learning accumulates without any chat history.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-12">
+      <p class="text-sm text-accent-green mb-3 font-mono">// EXAMPLES / MEMORY-AWARE HANDLER</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Memory-aware worker handler</h1>
+      <p class="text-xl text-muted mb-6 leading-snug max-w-2xl">
+        Recall before doing. Write back after.
+      </p>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        A <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">swarm-lib</code> handler asks memory what it knows about the task type
+        before starting, includes the relevant prior lessons in its prompt context, then writes back
+        the outcome as a typed learning. Across many runs, the handler gets better at its task
+        without any chat history surviving.
+      </p>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">The flow</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>swarm worker_loop <span class="text-muted">…</span>
+  <span class="text-warm">↓</span> claims a t.audit-repo task
+  <span class="text-warm">↓</span> invokes handler.sh
+        <span class="text-warm">↓</span> loam-cli search --query <span class="text-warm">"$TASK_TYPE"</span> --tags lesson --limit 5
+        <span class="text-warm">↓</span> claude -p with $RELEVANT in the prompt context
+        <span class="text-warm">↓</span> writes outcome to artifacts/
+        <span class="text-warm">↓</span> loam-cli write --type learning --tags <span class="text-warm">"$TASK_TYPE,$OUTCOME"</span>
+  <span class="text-warm">↓</span> swarm-cli complete</code></pre>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">handler.sh</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted">#!/usr/bin/env bash</span>
+<span class="text-muted"># A swarm-lib handler with memory pre-fetch + post-write hooks.</span>
+
+<span class="text-accent">set</span> -euo pipefail
+
+AGENT=<span class="text-warm">"$&#123;LOAM_AGENT:-mabus&#125;"</span>
+TASK_TYPE=<span class="text-warm">"$&#123;SWARM_TASK_TYPE:-audit-repo&#125;"</span>
+TASK_ID=<span class="text-warm">"$SWARM_TASK_ID"</span>
+ARTIFACT=<span class="text-warm">"$SWARM_ARTIFACT_PATH"</span>
+
+<span class="text-muted"># Pull related prior lessons. tags=AND, so this is "learnings from this exact task type".</span>
+RELEVANT=$(loam-cli search \
+  --agent <span class="text-warm">"$AGENT"</span> \
+  --query <span class="text-warm">"$TASK_TYPE"</span> \
+  --tags <span class="text-warm">"$TASK_TYPE,lesson"</span> \
+  --limit 5 \
+  | jq -r <span class="text-warm">'.[].entry.content'</span>)
+
+<span class="text-muted"># Do the work, with prior lessons embedded in context</span>
+PROMPT=<span class="text-warm">"You are auditing a repository. Prior lessons:
+
+$RELEVANT
+
+Task payload: $(cat $SWARM_PAYLOAD_PATH)"</span>
+
+claude -p --output-file <span class="text-warm">"$ARTIFACT"</span> &lt;&lt;EOF
+$PROMPT
+EOF
+
+<span class="text-muted"># Inspect the outcome — did it produce a useful artifact?</span>
+<span class="text-accent">if</span> [ -s <span class="text-warm">"$ARTIFACT"</span> ]; <span class="text-accent">then</span>
+  OUTCOME=<span class="text-warm">"outcome:success"</span>
+<span class="text-accent">else</span>
+  OUTCOME=<span class="text-warm">"outcome:empty"</span>
+<span class="text-accent">fi</span>
+
+<span class="text-muted"># Write back the lesson. Future runs will pull this on RELEVANT.</span>
+LESSON=$(claude -p &lt;&lt;EOF
+Distill one lesson from this task run in &lt;= 2 sentences. Frame it as a
+generalization — what to remember next time this task type comes up.
+
+ARTIFACT:
+$(cat $ARTIFACT)
+EOF
+)
+
+<span class="text-accent">echo</span> <span class="text-warm">"$LESSON"</span> | loam-cli write \
+  --agent <span class="text-warm">"$AGENT"</span> \
+  --type learning \
+  --tags <span class="text-warm">"$TASK_TYPE,lesson,$OUTCOME"</span> \
+  --source <span class="text-warm">"swarm:$SWARM_RUN_DIR/$TASK_ID"</span></code></pre>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">What changes over time</h2>
+      <ul class="text-muted space-y-3 max-w-2xl">
+        <li class="flex gap-3"><span class="text-warm shrink-0">→</span><span><span class="text-text">Run 1:</span> no prior lessons; handler does its best from scratch. Writes one lesson back.</span></li>
+        <li class="flex gap-3"><span class="text-warm shrink-0">→</span><span><span class="text-text">Run 5:</span> handler pulls 5 prior lessons, embedded in context. Avoids three failure modes it learned about earlier. Writes a new (likely shorter, more confident) lesson back.</span></li>
+        <li class="flex gap-3"><span class="text-warm shrink-0">→</span><span><span class="text-text">Run 50:</span> the 5 recalled lessons are the ones that ranked highest — bm25 + recency + access count + confidence. Older, less useful lessons quietly fall behind in ranking. Identity-scoped, so two different agents accumulate independent knowledge bases.</span></li>
+      </ul>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Where to use it</h2>
+      <ul class="text-muted space-y-2 max-w-2xl ml-4">
+        <li>Repo audits where the same set of files keeps coming up.</li>
+        <li>Code review where the team's style preferences are stable.</li>
+        <li>Triage / classification tasks where the failure modes repeat.</li>
+        <li>Content generation pipelines where prior outputs inform later ones.</li>
+      </ul>
+      <p class="text-muted leading-relaxed text-sm mt-3">
+        Anywhere "I've seen something like this before" is the right opening thought for the handler.
+      </p>
+    </section>
+
+  </div>
+
+</Base>

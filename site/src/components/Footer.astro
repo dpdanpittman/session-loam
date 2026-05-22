@@ -1,0 +1,27 @@
+---
+const year = new Date().getFullYear();
+---
+<footer class="border-t border-border text-sm text-muted mt-20">
+  <div class="max-w-5xl mx-auto px-6 py-8 flex flex-wrap items-center justify-between gap-4">
+    <p class="m-0">
+      MIT licensed. Built as part of the broader agentic infrastructure work at
+      <a href="https://mabus.ai" class="text-accent no-underline hover:underline">mabus.ai</a>.
+    </p>
+    <p class="m-0 font-mono text-xs flex gap-3">
+      <a href="https://github.com/dpdanpittman/session-loam" class="text-muted no-underline hover:text-accent">github</a>
+      <span class="text-border">·</span>
+      <a href="https://github.com/dpdanpittman/session-loam/blob/main/DESIGN.md" class="text-muted no-underline hover:text-accent">design</a>
+      <span class="text-border">·</span>
+      <a href="https://github.com/dpdanpittman/session-loam/releases" class="text-muted no-underline hover:text-accent">releases</a>
+    </p>
+  </div>
+  <div class="max-w-5xl mx-auto px-6 pb-6 text-xs text-muted/70">
+    <p class="m-0">
+      The fourth leg next to
+      <a href="https://essence.mabus.ai" class="text-muted no-underline hover:text-accent">session-essence</a> (identity),
+      <a href="https://swarm.mabus.ai" class="text-muted no-underline hover:text-accent">swarm-lib</a> (work),
+      and <a href="https://tribunal.mabus.ai" class="text-muted no-underline hover:text-accent">tribunal</a> (trust).
+      Prior art: Maildir + SQLite-backed mail clients (files are durable; the queryable index lives next to them).
+    </p>
+  </div>
+</footer>

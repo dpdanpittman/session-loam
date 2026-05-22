@@ -1,0 +1,115 @@
+# session-loam marketing site — nginx serving the Astro build output.
+# Mirrors the swarm-website / mabus-website deployment shape.
+#
+# How it gets served:
+#   Caddy on zaphod → memory.mabus.ai → reverse_proxy localhost:3403
+#   localhost:3403 → this pod's nginx → /usr/share/nginx/html (mounted from hostPath)
+#
+# Build flow (on zaphod):
+#   cd ~/src/session-loam/site && npm install && npm run build
+#   # Astro emits to site/dist/ — that's what nginx serves.
+#
+# Apply (from k8s-control):
+#   sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf apply -f memory-website.yaml
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: memory-website-nginx
+  namespace: zaphod
+data:
+  default.conf: |
+    server {
+      listen 80;
+      server_name _;
+      root /usr/share/nginx/html;
+      index index.html;
+
+      location / {
+        try_files $uri $uri/ $uri/index.html =404;
+      }
+
+      gzip on;
+      gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+      gzip_min_length 256;
+
+      location ~ \.(css|js|woff2?|svg|png|jpg|jpeg|webp|ico)$ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+      }
+    }
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memory-website
+  namespace: zaphod
+  labels:
+    app: memory-website
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: memory-website
+  template:
+    metadata:
+      labels:
+        app: memory-website
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: zaphod
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - name: http
+              containerPort: 80
+              hostPort: 3403
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          volumeMounts:
+            - name: site-content
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+              readOnly: true
+      volumes:
+        - name: site-content
+          hostPath:
+            path: /home/zaphod-beeblebox/src/session-loam/site/dist
+            type: Directory
+        - name: nginx-config
+          configMap:
+            name: memory-website-nginx
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: memory-website
+  namespace: zaphod
+  labels:
+    app: memory-website
+spec:
+  type: ClusterIP
+  selector:
+    app: memory-website
+  ports:
+    - port: 80
+      targetPort: 80

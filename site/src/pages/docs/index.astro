@@ -1,0 +1,63 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Docs" description="session-loam documentation: quickstart, concepts, API reference, production deployment, and comparison with other memory tools.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-12">
+      <p class="text-sm text-accent-green mb-3 font-mono">// DOCS</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Documentation</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        From "what is this" to "how do I run it next to a real workload."
+      </p>
+    </section>
+
+    <section class="grid md:grid-cols-2 gap-4">
+      <a href="/docs/quickstart" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">START HERE</p>
+        <h2 class="text-xl font-semibold mb-2 text-text">Quickstart</h2>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          Install, open the store, write, search, retrieve. End to end in five minutes.
+        </p>
+      </a>
+      <a href="/docs/concepts" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">FOUNDATIONS</p>
+        <h2 class="text-xl font-semibold mb-2 text-text">Concepts</h2>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          Entry schema, identity scoping, supersede semantics, retrieval ranking, FTS5 query shape.
+        </p>
+      </a>
+      <a href="/docs/api" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">REFERENCE</p>
+        <h2 class="text-xl font-semibold mb-2 text-text">API</h2>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">Store</code> + <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">Entry</code> + <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">SearchResult</code> + <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">RankWeights</code>. Python + CLI surfaces.
+        </p>
+      </a>
+      <a href="/docs/production" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">OPERATIONS</p>
+        <h2 class="text-xl font-semibold mb-2 text-text">Production</h2>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          Backups, growth expectations, WAL tuning, concurrent-writer model, supersede vs. prune.
+        </p>
+      </a>
+      <a href="/docs/comparison" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">DECISIONS</p>
+        <h2 class="text-xl font-semibold mb-2 text-text">vs. mem0 / ChromaDB / MCP</h2>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          When the existing tools are the right answer. When they aren't.
+        </p>
+      </a>
+      <a href="https://github.com/dpdanpittman/session-loam/blob/main/DESIGN.md" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">SPEC</p>
+        <h2 class="text-xl font-semibold mb-2 text-text">DESIGN.md →</h2>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          The v0.1 spec. Open questions, risks, prior art, build plan.
+        </p>
+      </a>
+    </section>
+
+  </div>
+
+</Base>

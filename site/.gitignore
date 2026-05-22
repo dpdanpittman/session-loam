@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.astro/
+.cache/
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.log
+.env
+.env.local
+
+# npm lockfile not shipped (matches swarm-lib + tribunal conventions)
+package-lock.json

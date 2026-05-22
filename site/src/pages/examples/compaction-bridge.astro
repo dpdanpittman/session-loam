@@ -1,0 +1,120 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Compaction bridge" description="A PreCompact hook synthesizes a session snapshot via a local model and writes it to session-loam. The next session reads the bridge on startup and picks up the thread.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-12">
+      <p class="text-sm text-accent-green mb-3 font-mono">// EXAMPLES / COMPACTION BRIDGE</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Compaction bridge</h1>
+      <p class="text-xl text-muted mb-6 leading-snug max-w-2xl">
+        Synthesize before the cliff. Read on the other side.
+      </p>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        The chat window is volatile. When an agentic session hits compaction, ad-hoc context disappears.
+        This pattern bridges the gap: a PreCompact hook writes a structured snapshot to memory;
+        the next session reads it back.
+      </p>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">The flow</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>session N <span class="text-muted">…</span>
+  <span class="text-warm">↓</span> PreCompact hook fires
+  <span class="text-warm">↓</span> local model synthesizes "what's the live thread about"
+  <span class="text-warm">↓</span> loam-cli write --type compact-snapshot --tags <span class="text-warm">"session:&lt;ts&gt;"</span>
+                              <span class="text-muted">⋯⋯⋯⋯⋯⋯</span>
+  <span class="text-warm">↓</span> compaction happens
+session N+1 starts
+  <span class="text-warm">↓</span> SessionStart hook fires
+  <span class="text-warm">↓</span> loam-cli recent --type compact-snapshot --limit 1
+  <span class="text-warm">↓</span> bridge content lands in initial context</code></pre>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">PreCompact hook (writer)</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted">#!/usr/bin/env bash</span>
+<span class="text-muted"># ~/.claude/scripts/loam-compact-snapshot.sh</span>
+<span class="text-muted"># Wired in as a PreCompact hook in ~/.claude/settings.json</span>
+
+<span class="text-accent">set</span> -euo pipefail
+
+AGENT=<span class="text-warm">"$&#123;LOAM_AGENT:-mabus&#125;"</span>
+TS=$(date -u +<span class="text-warm">"%Y-%m-%dT%H:%M:%SZ"</span>)
+
+<span class="text-muted"># Pull the live transcript via the agent's exposed interface</span>
+TRANSCRIPT=$(cat <span class="text-warm">"$TRANSCRIPT_PATH"</span>)
+
+<span class="text-muted"># Synthesize via a local model (Ollama, llama.cpp, etc.)</span>
+SUMMARY=$(ollama run qwq:32b &lt;&lt;EOF
+Summarize the most active threads and decisions from this session in &lt;= 200 words.
+Skip greetings and stylistic notes. List concrete in-flight tasks at the end.
+
+TRANSCRIPT:
+$TRANSCRIPT
+EOF
+)
+
+<span class="text-muted"># Write to loam</span>
+loam-cli write \
+  --agent <span class="text-warm">"$AGENT"</span> \
+  --type compact-snapshot \
+  --tags <span class="text-warm">"compact-snapshot,session:$TS"</span> \
+  --source <span class="text-warm">"essence:precompact-hook"</span> \
+  --content <span class="text-warm">"$SUMMARY"</span></code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        The synthesis pass is the same one <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">session-essence</code> already runs for identity portraits.
+        The destination is the only thing that differs.
+      </p>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">SessionStart hook (reader)</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted">#!/usr/bin/env bash</span>
+<span class="text-muted"># ~/.claude/scripts/loam-session-start.sh</span>
+
+<span class="text-accent">set</span> -euo pipefail
+
+AGENT=<span class="text-warm">"$&#123;LOAM_AGENT:-mabus&#125;"</span>
+
+<span class="text-muted"># Fetch the most recent bridge entry — at most 1, jq-friendly JSON</span>
+BRIDGE=$(loam-cli recent \
+  --agent <span class="text-warm">"$AGENT"</span> \
+  --type compact-snapshot \
+  --limit 1 \
+  | jq -r <span class="text-warm">'.[0].content // empty'</span>)
+
+<span class="text-accent">if</span> [ -n <span class="text-warm">"$BRIDGE"</span> ]; <span class="text-accent">then</span>
+  <span class="text-accent">echo</span> <span class="text-warm">"// CONTEXT FROM PRIOR SESSION"</span>
+  <span class="text-accent">echo</span> <span class="text-warm">"$BRIDGE"</span>
+<span class="text-accent">fi</span></code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        Reinforce-on-retrieve means the bridge entry's <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">access_count</code> bumps every time it's read.
+        Bridges that get re-read in subsequent sessions (because the thread keeps going) rank higher
+        on future searches. Stale ones quietly fall behind.
+      </p>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Why this composes well</h2>
+      <ul class="text-muted space-y-3 max-w-2xl">
+        <li class="flex gap-3"><span class="text-warm shrink-0">→</span><span><span class="text-text">No mid-flight loss.</span> The agent doesn't have to detect compaction or react to it. The hook fires once, before the cliff.</span></li>
+        <li class="flex gap-3"><span class="text-warm shrink-0">→</span><span><span class="text-text">Audit trail.</span> Every session's bridge is preserved. You can scroll back through a year of session entries and see how a thread evolved.</span></li>
+        <li class="flex gap-3"><span class="text-warm shrink-0">→</span><span><span class="text-text">Separation of concerns.</span> Identity portraits stay in <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">session-essence</code>. Session-content bridges live in <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">session-loam</code>. Two substrates, each focused.</span></li>
+      </ul>
+    </section>
+
+    <section class="mb-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Where to plug it in</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        For Claude Code: <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">PreCompact</code> + <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">SessionStart</code> hooks in <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">~/.claude/settings.json</code>.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        For any other agent framework: same shape — pre-shutdown writer + post-startup reader. The substrate doesn't care which agent is on either side of the bridge.
+      </p>
+    </section>
+
+  </div>
+
+</Base>

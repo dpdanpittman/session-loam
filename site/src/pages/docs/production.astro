@@ -1,0 +1,93 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Production" description="Running session-loam alongside a real workload. Backups, growth, WAL tuning, concurrent writes, supersede vs. prune.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-10">
+      <p class="text-sm text-accent-green mb-3 font-mono">// DOCS / PRODUCTION</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Production deployment</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        What to think about once memory starts to matter.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Backups</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Standard SQLite backup approaches apply. <span class="text-text">Don't copy a hot <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">.db</code> file
+        with stray <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">.db-wal</code> + <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">.db-shm</code> siblings</span> — the snapshot will be inconsistent.
+        Two safe options:
+      </p>
+      <ul class="text-muted space-y-2 max-w-2xl ml-4">
+        <li>Use SQLite's online backup API (<code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">sqlite3 src.db ".backup dest.db"</code>). Atomic, hot-safe.</li>
+        <li>Stop writes briefly, run <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">PRAGMA wal_checkpoint(TRUNCATE)</code>, then <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">rsync</code>.</li>
+      </ul>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Growth expectations</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Never-delete is the default. Expect the store to grow linearly with write volume.
+        Anecdotal sizing: ~1 KB per entry with content and a few tags; an FTS5 index roughly doubles
+        that. A million entries lands somewhere in the 1–3 GB range — well within SQLite's comfort zone.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        When you do want to prune, the criterion is operator-defined: by age, by access count,
+        by type, by tag. Prune is a day-5 surface; for now, ad-hoc SQL works fine.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Concurrent writers</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        WAL mode + a 5-second <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">busy_timeout</code> are enabled on open. Many processes can read
+        concurrently; writes are serialized at the SQLite level. For workloads with heavy concurrent
+        writes (say, &gt;10 worker processes hammering the same store), you'll see <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">SQLITE_BUSY</code>
+        backoffs. Tune <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">busy_timeout</code> upward or shard by type/tag prefix.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        In the common case — one or two agents, occasional writes, frequent reads — concurrency
+        isn't something you'll have to think about.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Supersede vs. prune</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Two distinct operations with different semantics:
+      </p>
+      <ul class="text-muted space-y-2 max-w-2xl ml-4">
+        <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">supersedes</code> — write a replacement that points back; the old row stays for audit.
+          Default search hides it. Default <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">get</code> still returns it.</li>
+        <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">prune</code> (day 5) — actually delete rows. Irreversible. Operator-driven only;
+          there's no background sweeper in v0.1.</li>
+      </ul>
+      <p class="text-muted leading-relaxed text-sm">
+        Default workflow: supersede for everything. Reach for prune only when the file has grown too large to back up cheaply.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Identity drift</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        If you rename the agent identity (e.g., <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">claude</code> → <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">mabus</code>), historical entries
+        are stranded in the old <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">claude.db</code> file. The <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">agent</code> field on each row remains the
+        original — there's no auto-rename. A future <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli rebind --from --to</code> will handle this;
+        for now, the file is the unit of identity.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Schema upgrades</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Minor bumps (0.1 → 0.2) are additive only. Major bumps (0.1 → 1.0) are breaking; the library
+        will refuse to open a store with an unknown major. Always test a schema migration against a
+        backup before running it against the canonical store.
+      </p>
+    </section>
+
+  </div>
+
+</Base>

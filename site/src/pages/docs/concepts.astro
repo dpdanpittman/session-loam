@@ -1,0 +1,117 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Concepts" description="The mental model behind session-loam: entries, identity scoping, supersede semantics, retrieval ranking, FTS5 query shape, concurrent-writer model.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-10">
+      <p class="text-sm text-accent-green mb-3 font-mono">// DOCS / CONCEPTS</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Concepts</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        The mental model. Six anchors.
+      </p>
+    </section>
+
+    <section id="entry" class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">1. Entry</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        The atomic unit. Every record in the store is one of these.
+      </p>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>&#123;
+  <span class="text-warm">"id"</span>:            <span class="text-warm">"e.r3x2a"</span>,
+  <span class="text-warm">"agent"</span>:         <span class="text-warm">"mabus"</span>,
+  <span class="text-warm">"type"</span>:          <span class="text-warm">"observation"</span>,
+  <span class="text-warm">"content"</span>:       <span class="text-warm">"Dan prefers terse responses…"</span>,
+  <span class="text-warm">"source"</span>:        <span class="text-warm">"session:2026-05-22T03:00Z"</span>,
+  <span class="text-warm">"confidence"</span>:    <span class="text-warm">0.95</span>,
+  <span class="text-warm">"tags"</span>:          [<span class="text-warm">"dan"</span>, <span class="text-warm">"preference"</span>],
+  <span class="text-warm">"created_at"</span>:    <span class="text-warm">"2026-05-22T03:12:00Z"</span>,
+  <span class="text-warm">"last_accessed"</span>: <span class="text-warm">"2026-05-22T09:18:21Z"</span>,
+  <span class="text-warm">"access_count"</span>:  <span class="text-warm">7</span>,
+  <span class="text-warm">"supersedes"</span>:    <span class="text-accent">null</span>,
+  <span class="text-warm">"superseded_by"</span>: <span class="text-accent">null</span>,
+  <span class="text-warm">"attestations"</span>:  [],
+  <span class="text-warm">"metadata"</span>:      &#123;&#125;
+&#125;</code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">type</code> is free-form. Common shapes: <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">observation</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">fact</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">learning</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">event</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">reference</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">compact-snapshot</code>. The library doesn't enforce a taxonomy.
+      </p>
+    </section>
+
+    <section id="identity-scoping" class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">2. Identity scoping</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Each agent has its own SQLite file at <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">~/.session-loam/&lt;agent&gt;.db</code>.
+        Two agents on the same machine can't accidentally read or overwrite each other's memories — the
+        substrate enforces it by file path.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Cross-agent reads are explicit (planned for v0.3 via grants). For v0.1 the rule is simple:
+        one identity, one file.
+      </p>
+    </section>
+
+    <section id="supersede" class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">3. Supersede, not delete</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        When a memory needs to be updated, you write a new entry with
+        <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">supersedes=&lt;old_id&gt;</code>.
+        In the same transaction, the old entry's <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">superseded_by</code>
+        is back-filled. Both rows stay; default search and recent queries hide the older one.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Pass <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">include_superseded=True</code> for audit queries. The history is intact.
+      </p>
+    </section>
+
+    <section id="reinforce" class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">4. Reinforce on retrieve</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Every successful <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">get</code>, <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">search</code>, or <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">recent</code> hit bumps the entry's
+        <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">last_accessed</code> +
+        <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">access_count</code>. Frequently-touched memories rank higher.
+        Untouched ones quietly fade in retrieval order — but they don't disappear until you explicitly prune them.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Pass <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">reinforce=False</code> for audit reads that shouldn't touch the access counter.
+      </p>
+    </section>
+
+    <section id="ranking" class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">5. Retrieval ranking</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Search candidates are pulled by SQLite's FTS5 <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">bm25</code> score (oversampled
+        4× to leave room for boosts). Then a multiplicative boost layer is applied in Python:
+      </p>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>final = bm25_norm * (1.0
+                    + w_recency    * recency_factor
+                    + w_confidence * entry.confidence
+                    + w_access     * log1p(entry.access_count))</code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">recency_factor</code> uses an exponential half-life on the entry's age. All weights are
+        tunable per call via <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">RankWeights</code>; set any strength to 0.0 to disable a signal.
+      </p>
+    </section>
+
+    <section id="fts5" class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">6. FTS5 query shape</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        The <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">query</code> string passed to <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">search()</code> is an FTS5 MATCH expression. Operators:
+      </p>
+      <ul class="text-muted space-y-2 max-w-2xl ml-4">
+        <li><code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">word</code> — match the word (porter-stemmed)</li>
+        <li><code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">"exact phrase"</code> — phrase match</li>
+        <li><code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">prefix*</code> — prefix match</li>
+        <li><code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">a OR b</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">a AND b</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">a NOT b</code> — boolean</li>
+        <li><code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">NEAR(a b, 5)</code> — proximity</li>
+      </ul>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        For literal strings with special chars, wrap with
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">session_loam.search.escape_query(text)</code>.
+      </p>
+    </section>
+
+  </div>
+
+</Base>

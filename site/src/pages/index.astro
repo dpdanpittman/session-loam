@@ -1,0 +1,185 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="session-loam">
+
+  <section class="max-w-4xl mx-auto px-6 pt-16 pb-12">
+    <p class="text-sm font-mono text-warm mb-3">// SUBSTRATE · v0.1 · alpha</p>
+    <h1 class="text-5xl font-bold leading-tight mb-4">session-loam</h1>
+    <p class="text-xl text-muted leading-relaxed max-w-3xl mb-4">
+      Memory continuity for autonomous agents.
+    </p>
+    <p class="text-base text-muted leading-relaxed max-w-3xl mb-8">
+      A SQLite-backed substrate that remembers what your agent learned across runs.
+      Identity-scoped. Tag + full-text retrieval. Never-delete with reinforce-on-retrieve.
+      No daemon, no broker, no service to operate — just a file per agent and a Python
+      library that knows how to query it.
+    </p>
+    <div class="flex flex-wrap gap-3 mb-10">
+      <a href="/docs/quickstart" class="bg-accent text-bg px-5 py-2.5 rounded font-semibold no-underline hover:opacity-90 transition">Quickstart →</a>
+      <a href="/docs" class="border border-border px-5 py-2.5 rounded font-semibold text-text no-underline hover:bg-panel transition">Docs</a>
+      <a href="https://github.com/dpdanpittman/session-loam" class="border border-border px-5 py-2.5 rounded font-semibold text-text no-underline hover:bg-panel transition">GitHub</a>
+    </div>
+
+    <div class="bg-panel border-l-4 border-warm rounded-r p-6 max-w-3xl">
+      <p class="text-sm font-mono text-warm mb-2">// THE FAILURE MODE</p>
+      <p class="text-muted leading-relaxed">
+        "I solved this same problem three sessions ago." But the agent has no durable
+        record of the solution, so it solves it again — possibly worse. Chat history
+        compresses away. Vector DBs lose identity. Ad-hoc files lose schema.
+        <span class="text-text">Learning-as-state has no substrate.</span> Until now.
+      </p>
+    </div>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-6 py-8">
+    <h2 class="text-2xl font-bold mb-6 text-accent">Three problems, named</h2>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-panel border-l-2 border-warm p-5 rounded-r">
+        <h3 class="font-semibold mb-2 text-text">Chat-history-as-memory</h3>
+        <p class="text-sm text-muted leading-relaxed">
+          The conversation is volatile. Compaction strips the context that gave answers
+          their shape. Nothing accumulates between runs.
+        </p>
+      </div>
+      <div class="bg-panel border-l-2 border-warm p-5 rounded-r">
+        <h3 class="font-semibold mb-2 text-text">Vector-DB-as-memory</h3>
+        <p class="text-sm text-muted leading-relaxed">
+          ChromaDB, Pinecone, mem0. Great for semantic similarity. No identity scoping,
+          no tag filters, no time queries, no attestation pathway.
+        </p>
+      </div>
+      <div class="bg-panel border-l-2 border-warm p-5 rounded-r">
+        <h3 class="font-semibold mb-2 text-text">Notes-folder-as-memory</h3>
+        <p class="text-sm text-muted leading-relaxed">
+          A pile of markdown files. No schema, no retrieval, no reinforcement signal.
+          The agent can't find what it wrote last week.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-6 py-8">
+    <h2 class="text-2xl font-bold mb-6 text-accent">Three primitives</h2>
+    <div class="grid md:grid-cols-3 gap-4">
+      <div class="bg-panel rounded p-5 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PRIMITIVE 1</p>
+        <h3 class="font-semibold mb-2 text-warm">One file per agent</h3>
+        <p class="text-sm text-muted leading-relaxed">
+          <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">~/.session-loam/&lt;agent&gt;.db</code>.
+          SQLite, ACID, queryable by any client. Identity is the partition; agents don't
+          accidentally cross-pollinate.
+        </p>
+      </div>
+      <div class="bg-panel rounded p-5 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PRIMITIVE 2</p>
+        <h3 class="font-semibold mb-2 text-warm">FTS5 + tags + time</h3>
+        <p class="text-sm text-muted leading-relaxed">
+          Full-text search via SQLite's FTS5 virtual table. Tags via a junction table for
+          exact-match filtering. Time-range queries via indexed timestamps. No embedding
+          model in the critical path.
+        </p>
+      </div>
+      <div class="bg-panel rounded p-5 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PRIMITIVE 3</p>
+        <h3 class="font-semibold mb-2 text-warm">Reinforce on retrieve</h3>
+        <p class="text-sm text-muted leading-relaxed">
+          Every hit bumps <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">last_accessed</code> +
+          <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">access_count</code>. Memories that matter
+          surface to the top of ranked search. Memories that don't fade quietly — until you prune them.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-6 py-8">
+    <div class="bg-panel border-l-4 border-accent p-6 rounded-r">
+      <p class="text-sm font-mono text-accent mb-2">// THE NEVER-DELETE RULE</p>
+      <p class="text-muted leading-relaxed mb-2">
+        Memories are not silently expired. They persist until you explicitly prune them.
+        Edits are <em class="text-text not-italic">supersedes</em> — the new entry references the old, the old stays for audit.
+      </p>
+      <p class="text-muted leading-relaxed">
+        Search hides superseded entries by default and uses bm25 + recency + confidence + access-count
+        to rank what surfaces. Tunable per call.
+      </p>
+    </div>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-6 py-8">
+    <h2 class="text-2xl font-bold mb-6 text-accent">Where it slots in</h2>
+    <p class="text-muted leading-relaxed mb-6">
+      session-loam is one library you can drop into a Python or shell pipeline. It composes
+      with three substrate-layer projects you might already know, and works fine without any of them.
+    </p>
+    <div class="grid md:grid-cols-2 gap-4">
+      <a href="/patterns#patterns" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">USE-CASE</p>
+        <h3 class="font-semibold mb-2 text-text">Day-to-day patterns</h3>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          Compaction bridge. Per-task memory recall. Cross-session preferences.
+          User-specific facts. The five concrete shapes of work where session-loam saves real time.
+        </p>
+      </a>
+      <a href="/examples" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">EXAMPLES</p>
+        <h3 class="font-semibold mb-2 text-text">Wired up to other substrates</h3>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          PreCompact bridge to <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">session-essence</code>.
+          Memory-aware worker handlers via <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">swarm-lib</code>.
+          Attestation flow with <code class="text-xs bg-code-bg border border-code-border px-1 py-0.5 rounded">tribunal</code> (v0.2).
+        </p>
+      </a>
+      <a href="/docs/concepts" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">DOCS</p>
+        <h3 class="font-semibold mb-2 text-text">Concepts</h3>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          Entry schema, identity scoping, supersede semantics, retrieval ranking,
+          FTS5 query shape, concurrent-writer model.
+        </p>
+      </a>
+      <a href="/docs/comparison" class="block bg-panel rounded p-5 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">DOCS</p>
+        <h3 class="font-semibold mb-2 text-text">vs. mem0 / ChromaDB / MCP</h3>
+        <p class="text-sm text-muted leading-relaxed m-0">
+          When the existing memory tools are the right answer, and when they aren't.
+          Honest comparison.
+        </p>
+      </a>
+    </div>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-6 py-8">
+    <h2 class="text-2xl font-bold mb-4 text-accent">60-second tour</h2>
+    <pre class="bg-code-bg border border-code-border p-5 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted"># Install (once published)</span>
+pip install session-loam
+
+<span class="text-muted"># Open the store for the current agent identity</span>
+<span class="text-accent">python</span> -c <span class="text-warm">"
+from session_loam import Store, Entry
+store = Store.open(agent='mabus')
+
+store.write(Entry(
+    type='observation',
+    content='Dan prefers terse responses with no trailing summaries.',
+    tags=['dan', 'preference'],
+    confidence=0.95,
+))
+
+results = store.search(query='terse responses', tags=['preference'])
+for r in results:
+    print(r.entry.content)
+"</span></code></pre>
+  </section>
+
+  <section class="max-w-4xl mx-auto px-6 py-12">
+    <div class="bg-panel border-l-4 border-warm p-8 rounded-r">
+      <p class="text-muted leading-relaxed italic">
+        "Identity is stable. Work-state is ephemeral. There's no canonical substrate for the
+        middle thing — what an agent has learned across runs. session-loam is the substrate-layer
+        answer: filesystem-backed, identity-aware, never-delete by default, ready to compose."
+      </p>
+    </div>
+  </section>
+
+</Base>

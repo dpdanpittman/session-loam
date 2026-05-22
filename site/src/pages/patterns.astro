@@ -1,0 +1,101 @@
+---
+import Base from '../layouts/Base.astro';
+---
+<Base title="Patterns" description="Five day-to-day patterns for using session-loam in agent pipelines. Compaction bridges, per-task recall, cross-session preferences, user-specific facts, cross-tool federation.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-12">
+      <p class="text-sm text-accent-green mb-3 font-mono">// PATTERNS</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">How you'd use it day to day</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        Five concrete shapes of work where session-loam saves real time, tokens, or sanity.
+        Each one is the same substrate, just queried differently.
+      </p>
+    </section>
+
+    <section id="patterns" class="space-y-6">
+
+      <div id="compaction-bridge" class="bg-panel rounded p-6 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PATTERN 1 · the killer app</p>
+        <h2 class="text-xl font-semibold mb-3 text-warm">Compaction bridge</h2>
+        <p class="text-muted leading-relaxed mb-3">
+          Long agentic conversations get auto-compacted as context fills up. Before the compaction
+          fires, an agent hook synthesizes a one-paragraph summary of the live thread and writes it
+          as a <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-sm">compact-snapshot</code>
+          entry. The next session's startup hook reads
+          <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-sm">store.recent(type='compact-snapshot', limit=1)</code>
+          and lands with the bridge already in hand.
+        </p>
+        <p class="text-sm text-muted leading-relaxed">
+          The chat surface looks like the same conversation continuing. The substrate underneath just won't lose state.
+        </p>
+      </div>
+
+      <div id="per-task-recall" class="bg-panel rounded p-6 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PATTERN 2 · learning-as-state</p>
+        <h2 class="text-xl font-semibold mb-3 text-warm">Per-task memory recall</h2>
+        <p class="text-muted leading-relaxed mb-3">
+          Before doing work, the handler queries memory for related prior runs. "I've audited this kind of
+          repo before — what did I learn?" gets a real answer instead of a re-derivation.
+          On task completion, the handler writes back: what worked, what didn't, gotchas.
+        </p>
+        <pre class="bg-code-bg border border-code-border p-3 rounded text-sm overflow-x-auto leading-relaxed"><code>RELEVANT=$(loam-cli search --query <span class="text-warm">"$TASK_TYPE"</span> --tags lesson --limit 5)
+<span class="text-muted"># …do the work, with $RELEVANT in the prompt context…</span>
+echo <span class="text-warm">"…"</span> | loam-cli write --type learning --tags <span class="text-warm">"$TASK_TYPE,outcome:success"</span></code></pre>
+      </div>
+
+      <div id="cross-session-preferences" class="bg-panel rounded p-6 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PATTERN 3 · feedback that sticks</p>
+        <h2 class="text-xl font-semibold mb-3 text-warm">Cross-session preferences</h2>
+        <p class="text-muted leading-relaxed mb-3">
+          "Stop summarizing what you just did, I can read the diff." That correction shouldn't have
+          to be re-given every session. Write it as a typed entry; the next session retrieves
+          <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-sm">type='preference'</code>
+          on startup and the rule applies again — for as long as it's true.
+        </p>
+        <p class="text-sm text-muted leading-relaxed">
+          When the user reverses the preference later, the new entry supersedes the old. The old
+          stays for audit but doesn't surface in default search.
+        </p>
+      </div>
+
+      <div id="user-facts" class="bg-panel rounded p-6 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PATTERN 4 · stable context</p>
+        <h2 class="text-xl font-semibold mb-3 text-warm">User-specific facts</h2>
+        <p class="text-muted leading-relaxed mb-3">
+          The agent learns things about a user across sessions: their projects, their preferences,
+          things they've explicitly asked to be remembered. Each one is a typed entry with their
+          handle as a tag. Retrieval at session start is a single tag-filtered query.
+        </p>
+        <p class="text-sm text-muted leading-relaxed">
+          When facts go stale, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-sm">supersede</code> preserves the old
+          version and points to the new. The audit trail is intact; default queries see only what's current.
+        </p>
+      </div>
+
+      <div id="cross-tool-federation" class="bg-panel rounded p-6 border border-border">
+        <p class="text-xs font-mono text-muted mb-2">PATTERN 5 · the substrate everyone shares</p>
+        <h2 class="text-xl font-semibold mb-3 text-warm">Cross-tool federation</h2>
+        <p class="text-muted leading-relaxed mb-3">
+          Different tools, same memory. A reasoning step writes a learning. A scheduled job reads
+          relevant entries for context. A separate review pass adds an attestation. None of them
+          need to know about each other — they just read and write the same SQLite file.
+        </p>
+        <p class="text-sm text-muted leading-relaxed">
+          Bash scripts use <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-sm">loam-cli</code>. Python uses the library.
+          Anything that can talk to SQLite can join the federation. The file is the contract.
+        </p>
+      </div>
+
+    </section>
+
+    <section class="mt-12">
+      <p class="text-sm text-muted leading-relaxed">
+        Each pattern works on day one. <a href="/docs/quickstart" class="text-accent no-underline hover:underline">Quickstart →</a>
+      </p>
+    </section>
+
+  </div>
+
+</Base>

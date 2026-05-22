@@ -1,0 +1,45 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Examples" description="Worked examples showing session-loam composed with the other substrate-layer libraries: session-essence, swarm-lib, tribunal.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-12">
+      <p class="text-sm text-accent-green mb-3 font-mono">// EXAMPLES</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Worked examples</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        Two end-to-end recipes showing how memory composes with the other substrate libraries.
+      </p>
+    </section>
+
+    <section class="grid md:grid-cols-2 gap-4">
+      <a href="/examples/compaction-bridge" class="block bg-panel rounded p-6 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">ESSENCE + LOAM</p>
+        <h2 class="text-xl font-semibold mb-3 text-text">Compaction bridge</h2>
+        <p class="text-sm text-muted leading-relaxed">
+          A PreCompact hook that synthesizes a snapshot via a local model and writes it to loam.
+          The next session's startup hook reads the bridge entry and picks up the thread.
+        </p>
+      </a>
+      <a href="/examples/memory-aware-handler" class="block bg-panel rounded p-6 border border-border no-underline hover:border-warm transition">
+        <p class="text-xs font-mono text-muted mb-2">SWARM + LOAM</p>
+        <h2 class="text-xl font-semibold mb-3 text-text">Memory-aware worker handler</h2>
+        <p class="text-sm text-muted leading-relaxed">
+          A swarm-lib handler that recalls related prior runs before doing work, then writes back
+          the lesson on completion. Learning accumulates across runs without any chat history.
+        </p>
+      </a>
+    </section>
+
+    <section class="mt-12">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Coming soon</h2>
+      <ul class="text-muted space-y-2 ml-4">
+        <li>Tribunal attestation flow — adversarial review writes signed verdicts to <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">entry.attestations</code> (v0.2 wiring).</li>
+        <li>Cross-tool federation — bash + Python + n8n all reading and writing the same store via <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">loam-cli</code>.</li>
+      </ul>
+    </section>
+
+  </div>
+
+</Base>

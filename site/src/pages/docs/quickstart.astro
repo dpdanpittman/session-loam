@@ -1,0 +1,106 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Quickstart" description="Install session-loam and run the first write/search round-trip in five minutes.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-10">
+      <p class="text-sm text-accent-green mb-3 font-mono">// DOCS / QUICKSTART</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">Quickstart</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        Install, open the store, write a memory, search for it. End to end in five minutes.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">1. Install</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Python 3.11+. Pure-Python, no external dependencies. (PyPI release is pending the v0.1.0 tag;
+        clone the repo for now.)
+      </p>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>git clone https://github.com/dpdanpittman/session-loam.git
+<span class="text-accent">cd</span> session-loam
+pip install -e .</code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">2. Open the store</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        One file per agent identity. By default, lives at <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">~/.session-loam/&lt;agent&gt;.db</code>.
+      </p>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-accent">from</span> session_loam <span class="text-accent">import</span> Store, Entry
+
+store = Store.open(agent=<span class="text-warm">"mabus"</span>)</code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        No <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">agent</code> argument? Resolution order:
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">$LOAM_AGENT</code> environment variable, then your machine's short hostname.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">3. Write a memory</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>store.write(Entry(
+    type=<span class="text-warm">"observation"</span>,
+    content=<span class="text-warm">"Dan prefers terse responses with no trailing summaries."</span>,
+    tags=[<span class="text-warm">"dan"</span>, <span class="text-warm">"preference"</span>],
+    confidence=<span class="text-warm">0.95</span>,
+    source=<span class="text-warm">"session:2026-05-22T03:00Z"</span>,
+))</code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">id</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">agent</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">created_at</code>, and <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">last_accessed</code> are filled in automatically.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">4. Search</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>results = store.search(
+    query=<span class="text-warm">"terse responses"</span>,
+    tags=[<span class="text-warm">"preference"</span>],
+    limit=<span class="text-warm">10</span>,
+)
+<span class="text-accent">for</span> r <span class="text-accent">in</span> results:
+    print(r.rank, r.entry.content, r.snippet)</code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        Returns <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">SearchResult</code> objects with the matched Entry, an FTS5 bm25 + boosts rank, and a context snippet around the matched terms.
+        Each returned entry has its <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">access_count</code> +
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">last_accessed</code> bumped — reinforce-on-retrieve.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">5. Time-ordered recall</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted"># Most recent N entries of a given type</span>
+recent = store.recent(type=<span class="text-warm">"learning"</span>, limit=<span class="text-warm">5</span>)
+
+<span class="text-muted"># Or time-windowed</span>
+this_week = store.recent(since=<span class="text-warm">"2026-05-15T00:00Z"</span>, tags=[<span class="text-warm">"dan"</span>])</code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">6. Supersede (edit-but-keep-history)</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted"># Write a replacement that points back to the old id.</span>
+<span class="text-muted"># The old entry stays in the db for audit but is hidden from default search.</span>
+store.write(Entry(
+    type=<span class="text-warm">"observation"</span>,
+    content=<span class="text-warm">"Dan tolerates trailing summaries when explicitly asked."</span>,
+    tags=[<span class="text-warm">"dan"</span>, <span class="text-warm">"preference"</span>],
+    supersedes=old_entry.id,
+))</code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">7. From the shell</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        The <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli</code> ships in v0.1.x — coming on day 4 of the build plan. The Python surface is the contract; the CLI is a thin subprocess wrapper that emits jq-friendly JSON.
+      </p>
+    </section>
+
+    <section class="mt-12 flex gap-3">
+      <a href="/docs/concepts" class="border border-border px-5 py-2.5 rounded font-semibold text-text no-underline hover:bg-panel transition">Concepts →</a>
+      <a href="/docs/api" class="border border-border px-5 py-2.5 rounded font-semibold text-text no-underline hover:bg-panel transition">API reference →</a>
+    </section>
+
+  </div>
+
+</Base>

@@ -1,0 +1,101 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="Comparison" description="Honest comparison with other agent-memory tools: mem0, ChromaDB, MCP memory servers, plain markdown notes. When each is the right answer.">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-10">
+      <p class="text-sm text-accent-green mb-3 font-mono">// DOCS / COMPARISON</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">vs. other memory tools</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        When the existing answer is the right one, and when it isn't.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">vs. mem0</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        <a href="https://github.com/mem0ai/mem0" class="text-accent no-underline hover:underline">mem0</a> is the closest neighbor. Library, agent-focused, retrieval-aware.
+      </p>
+      <p class="text-muted leading-relaxed mb-3">
+        Where mem0 fits better: you want LLM-driven extraction of facts from raw conversation, you want
+        a managed cloud option, you want a default that "just works" without thinking about schema.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Where session-loam fits better: you want identity-scoped per-agent stores by default, you want
+        to keep memory on local disk (or in a backup-able file), you want supersede + audit semantics
+        instead of mutation-in-place, and you want to compose with separate substrates for identity,
+        work-state, and trust.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">vs. ChromaDB / Pinecone / Weaviate</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Vector DBs solve a different problem: semantic similarity over embedding vectors.
+      </p>
+      <p class="text-muted leading-relaxed mb-3">
+        Where the vector DB fits better: retrieval where the query is unstructured prose and the
+        match needs to be semantic (paraphrase, synonyms, related concepts). RAG over corpora.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Where session-loam fits better: retrieval where you know the
+        <em class="text-text not-italic">shape</em> of the query — tag, time window, type, exact phrase.
+        "What did I observe about Dan last week?" is a tag + time query, not a vector lookup.
+        v0.2 will likely add vector embeddings as an opt-in <em class="text-text not-italic">additional</em>
+        index alongside FTS5 + tags, not a replacement.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">vs. Memory MCP servers</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        MCP memory servers (e.g. <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">@modelcontextprotocol/server-memory</code>) expose
+        a knowledge graph over a network protocol. Great when multiple agents need to share state
+        across machines.
+      </p>
+      <p class="text-muted leading-relaxed mb-3">
+        Where MCP memory fits better: cross-host coordination, multi-agent shared workspace,
+        knowledge-graph relationships as first-class.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Where session-loam fits better: per-agent stores that don't need a network protocol to
+        access. You can run session-loam <em class="text-text not-italic">behind</em> an MCP memory server — they're not mutually
+        exclusive. The substrate is local; the protocol on top is the operator's call.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">vs. plain notes + grep</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        A folder of markdown files. <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">grep</code> + <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">find</code> is the retrieval layer. Honestly,
+        this is the right default for a lot of solo workflows.
+      </p>
+      <p class="text-muted leading-relaxed mb-3">
+        Where markdown + grep fits better: you read and write more than the agent does, the corpus is
+        small, and you want the substrate to be a thing humans browse in Obsidian.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        Where session-loam fits better: the agent is the primary writer, retrieval needs structured
+        filters (tag + type + time), and you care about reinforce-on-retrieve + supersede semantics.
+        At ~1k entries, FTS5 + tag indexes start to noticeably out-pull grep for the kinds of queries
+        agents actually ask.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">vs. chat-history-as-memory</h2>
+      <p class="text-muted leading-relaxed mb-3">
+        Many agentic systems use the conversation window as <em class="text-text not-italic">de facto</em> memory.
+        It works until it doesn't — and then it fails all at once at compaction.
+      </p>
+      <p class="text-muted leading-relaxed text-sm">
+        session-loam is the substrate that survives compaction. The <a href="/patterns#compaction-bridge" class="text-accent no-underline hover:underline">compaction bridge pattern</a>
+        explicitly addresses this.
+      </p>
+    </section>
+
+  </div>
+
+</Base>

@@ -1,0 +1,123 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="API reference" description="session-loam API surface: Store, Entry, SearchResult, RankWeights. Python library + loam-cli (coming on day 4).">
+
+  <div class="max-w-4xl mx-auto px-6 py-16">
+
+    <section class="mb-10">
+      <p class="text-sm text-accent-green mb-3 font-mono">// DOCS / API</p>
+      <h1 class="text-4xl font-bold mb-4 leading-tight">API reference</h1>
+      <p class="text-base text-muted leading-relaxed max-w-2xl">
+        Day 2 + day 3 surface. <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli</code> lands on day 4.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Store</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-accent">from</span> session_loam <span class="text-accent">import</span> Store, Entry, RankWeights</code></pre>
+
+      <h3 class="text-lg font-semibold text-text mt-6 mb-2"><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">Store.open(agent=None, *, path=None) → Store</code></h3>
+      <p class="text-muted leading-relaxed mb-2 text-sm">
+        Open (or create) the store for an agent. Resolution order: explicit arg →
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">$LOAM_AGENT</code> →
+        hostname. Path: explicit arg → <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">$LOAM_BASE_DIR/&lt;agent&gt;.db</code> →
+        <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">~/.session-loam/&lt;agent&gt;.db</code>.
+        WAL mode + foreign keys on. Refuses to open if on-disk schema major differs.
+      </p>
+
+      <h3 class="text-lg font-semibold text-text mt-6 mb-2"><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">store.write(entry: Entry) → Entry</code></h3>
+      <p class="text-muted leading-relaxed mb-2 text-sm">
+        Persist. Fills in <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">id</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">agent</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">created_at</code>, <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">last_accessed</code>.
+        If <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">entry.supersedes</code> is set, the predecessor's <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">superseded_by</code> back-ref is updated in the same transaction.
+      </p>
+
+      <h3 class="text-lg font-semibold text-text mt-6 mb-2"><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">store.get(entry_id) → Entry</code></h3>
+      <p class="text-muted leading-relaxed mb-2 text-sm">
+        Fetch one by id. Reinforces (bumps <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">last_accessed</code> and <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">access_count</code>).
+        Raises <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">EntryNotFound</code> if missing. Visible to <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">get</code> even when superseded.
+      </p>
+
+      <h3 class="text-lg font-semibold text-text mt-6 mb-2"><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">store.search(query, *, tags=None, type=None, since=None, until=None, include_superseded=False, limit=20, weights=DEFAULT_WEIGHTS, reinforce=True) → list[SearchResult]</code></h3>
+      <p class="text-muted leading-relaxed mb-2 text-sm">
+        FTS5 MATCH against content + tags. Tag filter is AND across the provided set.
+        Time-range is inclusive on both ends. Superseded entries are hidden unless opted in.
+        Ranking: bm25 + multiplicative boosts from <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">weights</code>.
+      </p>
+
+      <h3 class="text-lg font-semibold text-text mt-6 mb-2"><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">store.recent(*, type=None, tags=None, since=None, until=None, include_superseded=False, limit=20, reinforce=True) → list[Entry]</code></h3>
+      <p class="text-muted leading-relaxed mb-2 text-sm">
+        Time-ordered fetch (newest <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">created_at</code> first). Same filters as <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">search</code>, no text query.
+      </p>
+
+      <h3 class="text-lg font-semibold text-text mt-6 mb-2"><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">store.close()</code></h3>
+      <p class="text-muted leading-relaxed mb-2 text-sm">
+        Close the connection. Also exposed via context manager: <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">with Store.open() as store: …</code>.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Entry</h2>
+      <p class="text-muted leading-relaxed mb-3 text-sm">Dataclass.</p>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>@dataclass
+class Entry:
+    type: str
+    content: str
+    id: str | None              = None
+    agent: str | None           = None
+    source: str | None          = None
+    confidence: float | None    = None
+    tags: list[str]             = []
+    created_at: str | None      = None
+    last_accessed: str | None   = None
+    access_count: int           = 0
+    supersedes: str | None      = None
+    superseded_by: str | None   = None
+    attestations: list[dict]    = []
+    metadata: dict              = {}</code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">SearchResult</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>@dataclass
+class SearchResult:
+    entry: Entry
+    rank: float       <span class="text-muted"># bm25 + boosts, higher = better</span>
+    snippet: str      <span class="text-muted"># FTS5 snippet, [matched] terms bracketed</span></code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">RankWeights</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>@dataclass(frozen=True)
+class RankWeights:
+    recency_half_life_days: float = <span class="text-warm">14.0</span>
+    recency_strength:       float = <span class="text-warm">0.5</span>
+    confidence_strength:    float = <span class="text-warm">0.3</span>
+    access_count_strength:  float = <span class="text-warm">0.1</span></code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        Set any <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">*_strength</code> to <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">0.0</code> to disable that signal.
+        Pass a custom instance to <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">store.search(..., weights=...)</code>.
+      </p>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Exceptions</h2>
+      <ul class="text-muted space-y-2 max-w-2xl ml-4">
+        <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">EntryNotFound</code> — raised by <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">store.get()</code> when no entry matches the id.</li>
+        <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">SchemaVersionMismatch</code> — raised by <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">Store.open()</code> when the on-disk schema major differs from the library's.</li>
+      </ul>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">Helpers</h2>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-accent">from</span> session_loam.search <span class="text-accent">import</span> escape_query
+
+<span class="text-muted"># Wrap a literal string as an FTS5 phrase, escaping double quotes</span>
+phrase = escape_query(<span class="text-warm">'he said "hi"'</span>)
+<span class="text-muted"># -> '"he said ""hi"""'</span>
+store.search(query=phrase)</code></pre>
+    </section>
+
+  </div>
+
+</Base>
