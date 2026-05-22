@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "session-loam"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "Memory-continuity substrate for agentic workflows. SQLite-backed, identity-scoped, tag + full-text retrieval, reinforce-on-retrieve. The fourth leg next to essence + swarm-lib + tribunal."
 readme = "README.md"
 license = { text = "MIT" }

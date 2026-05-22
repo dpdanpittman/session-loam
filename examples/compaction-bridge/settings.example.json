@@ -1,0 +1,27 @@
+{
+  "_comment": "Snippet for ~/.claude/settings.json. Merge into your existing hooks block; do not replace your whole settings file with this. Adjust paths to where you cloned session-loam.",
+  "hooks": {
+    "PreCompact": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/src/session-loam/examples/compaction-bridge/loam-precompact.sh"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/src/session-loam/examples/compaction-bridge/loam-session-start.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
