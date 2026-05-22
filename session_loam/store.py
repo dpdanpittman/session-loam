@@ -19,7 +19,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
-from session_loam.entry import Entry
+from session_loam.entry import Entry, SearchResult
+from session_loam import search as _search
 
 SCHEMA_VERSION = "0.1"
 DEFAULT_BASE_DIR = Path.home() / ".session-loam"
@@ -308,6 +309,59 @@ class Store:
         entry.last_accessed = now
         entry.access_count = (entry.access_count or 0) + 1
         return entry
+
+    def search(
+        self,
+        query: str,
+        *,
+        tags: Iterable[str] | None = None,
+        type: str | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        include_superseded: bool = False,
+        limit: int = 20,
+        weights: "_search.RankWeights" = _search.DEFAULT_WEIGHTS,
+        reinforce: bool = True,
+    ) -> list[SearchResult]:
+        """FTS5 text search with tag/type/time filters and reinforce-on-hit.
+
+        See :func:`session_loam.search.search` for parameter semantics.
+        """
+        return _search.search(
+            self._conn,
+            query=query,
+            tags=tags,
+            type=type,
+            since=since,
+            until=until,
+            include_superseded=include_superseded,
+            limit=limit,
+            weights=weights,
+            reinforce=reinforce,
+        )
+
+    def recent(
+        self,
+        *,
+        type: str | None = None,
+        tags: Iterable[str] | None = None,
+        since: str | None = None,
+        until: str | None = None,
+        include_superseded: bool = False,
+        limit: int = 20,
+        reinforce: bool = True,
+    ) -> list[Entry]:
+        """Time-ordered fetch (newest ``created_at`` first) with filters."""
+        return _search.recent(
+            self._conn,
+            type=type,
+            tags=tags,
+            since=since,
+            until=until,
+            include_superseded=include_superseded,
+            limit=limit,
+            reinforce=reinforce,
+        )
 
     def _insert_tags(self, entry_id: str, tags: Iterable[str]) -> None:
         seen: set[str] = set()
