@@ -249,4 +249,4 @@ See [`docs/production`](https://memory.mabus.ai/docs/production) for the full op
 
 ## License
 
-MIT. See [`LICENSE`](LICENSE).
+[GNU AGPLv3 or later](LICENSE). Open-source, copyleft for network use — anyone running this as a service must publish their modifications under the same license. Code released under MIT in the v0.1.0 tagged release stays MIT for that tag; all `main` development from this commit forward is AGPLv3.

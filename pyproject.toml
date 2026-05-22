@@ -7,13 +7,13 @@ name = "session-loam"
 version = "0.1.0"
 description = "Memory-continuity substrate for agentic workflows. SQLite-backed, identity-scoped, tag + full-text retrieval, reinforce-on-retrieve. The fourth leg next to essence + swarm-lib + tribunal."
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "AGPL-3.0-or-later" }
 authors = [{ name = "Dan Pittman" }]
 requires-python = ">=3.11"
 keywords = ["agents", "llm", "memory", "continuity", "claude", "ollama", "sqlite"]
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
