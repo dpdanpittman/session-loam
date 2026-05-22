@@ -61,8 +61,8 @@ import Base from '../../layouts/Base.astro';
       <ul class="text-muted space-y-2 max-w-2xl ml-4">
         <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">supersedes</code> — write a replacement that points back; the old row stays for audit.
           Default search hides it. Default <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">get</code> still returns it.</li>
-        <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">prune</code> (day 5) — actually delete rows. Irreversible. Operator-driven only;
-          there's no background sweeper in v0.1.</li>
+        <li><code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">prune</code> — actually delete rows. Irreversible. Operator-driven only;
+          there's no background sweeper in v0.1. <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">Store.prune()</code> refuses to run with no filter set, and is dry-run by default — pass <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">--apply</code> on the CLI or <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">dry_run=False</code> in Python to actually delete.</li>
       </ul>
       <p class="text-muted leading-relaxed text-sm">
         Default workflow: supersede for everything. Reach for prune only when the file has grown too large to back up cheaply.

@@ -1,7 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 ---
-<Base title="API reference" description="session-loam API surface: Store, Entry, SearchResult, RankWeights. Python library + loam-cli (coming on day 4).">
+<Base title="API reference" description="session-loam API surface: Store, Entry, SearchResult, RankWeights. Python library + loam-cli subcommand reference.">
 
   <div class="max-w-4xl mx-auto px-6 py-16">
 
@@ -9,7 +9,7 @@ import Base from '../../layouts/Base.astro';
       <p class="text-sm text-accent-green mb-3 font-mono">// DOCS / API</p>
       <h1 class="text-4xl font-bold mb-4 leading-tight">API reference</h1>
       <p class="text-base text-muted leading-relaxed max-w-2xl">
-        Day 2 + day 3 surface. <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli</code> lands on day 4.
+        Complete v0.1.0 surface — Python library plus the <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli</code> subcommand set.
       </p>
     </section>
 
@@ -116,6 +116,34 @@ class RankWeights:
 phrase = escape_query(<span class="text-warm">'he said "hi"'</span>)
 <span class="text-muted"># -> '"he said ""hi"""'</span>
 store.search(query=phrase)</code></pre>
+    </section>
+
+    <section class="mb-10">
+      <h2 class="text-2xl font-bold mb-3 text-accent">loam-cli</h2>
+      <p class="text-muted leading-relaxed mb-3 text-sm">
+        Subprocess interface mirroring the Python surface. Single-line JSON on stdout by default; pass <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">--pretty</code> for indentation. All commands accept <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">--agent</code> and <code class="bg-code-bg border border-code-border px-1 py-0.5 rounded text-xs">--path</code> overrides.
+      </p>
+      <div class="overflow-x-auto">
+        <table class="text-sm w-full">
+          <thead>
+            <tr class="text-left text-muted border-b border-border">
+              <th class="py-2 pr-4">Command</th>
+              <th class="py-2">Purpose</th>
+            </tr>
+          </thead>
+          <tbody class="text-muted">
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli write</code></td><td class="py-2">Add an entry. <code class="text-xs">--content</code> reads stdin when omitted or set to <code class="text-xs">-</code>.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli get &lt;id&gt;</code></td><td class="py-2">Fetch one entry. <code class="text-xs">--no-reinforce</code> skips the access-count bump.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli search</code></td><td class="py-2">FTS5 + filters + ranking. Emits JSON array of <code class="text-xs">&#123;entry, rank, snippet&#125;</code>.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli recent</code></td><td class="py-2">Time-ordered fetch with filters. Emits JSON array of entries.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli ls</code></td><td class="py-2">Per-agent summary: count, by_type, top tags, last accessed. <code class="text-xs">--json</code> for machine output.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli supersede</code></td><td class="py-2">Write a replacement; inherits unspecified fields from predecessor.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli prune</code></td><td class="py-2">Filter-driven cleanup. Dry-run by default; <code class="text-xs">--apply</code> to commit.</td></tr>
+            <tr class="border-b border-border/40"><td class="py-2 pr-4"><code class="text-xs">loam-cli export</code></td><td class="py-2">Dump every entry as JSONL on stdout (ordered, no reinforce).</td></tr>
+            <tr><td class="py-2 pr-4"><code class="text-xs">loam-cli import</code></td><td class="py-2">Restore from JSONL on stdin or <code class="text-xs">--file</code>. <code class="text-xs">--replace</code> overwrites by id.</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
 
   </div>

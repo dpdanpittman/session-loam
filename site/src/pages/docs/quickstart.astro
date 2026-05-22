@@ -16,11 +16,11 @@ import Base from '../../layouts/Base.astro';
     <section class="mb-10">
       <h2 class="text-2xl font-bold mb-3 text-accent">1. Install</h2>
       <p class="text-muted leading-relaxed mb-3">
-        Python 3.11+. Pure-Python, no external dependencies. (PyPI release is pending the v0.1.0 tag;
-        clone the repo for now.)
+        Python 3.11+. Pure-Python, no external dependencies beyond the stdlib.
       </p>
       <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code>git clone https://github.com/dpdanpittman/session-loam.git
 <span class="text-accent">cd</span> session-loam
+git checkout v0.1.0          <span class="text-muted"># pin to the tagged release</span>
 pip install -e .</code></pre>
     </section>
 
@@ -92,7 +92,23 @@ store.write(Entry(
     <section class="mb-10">
       <h2 class="text-2xl font-bold mb-3 text-accent">7. From the shell</h2>
       <p class="text-muted leading-relaxed mb-3">
-        The <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli</code> ships in v0.1.x — coming on day 4 of the build plan. The Python surface is the contract; the CLI is a thin subprocess wrapper that emits jq-friendly JSON.
+        The <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">loam-cli</code> binary ships with the package and mirrors the Python surface for shell consumers. Single-line JSON output for <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">jq</code>; <code class="bg-code-bg border border-code-border px-1.5 py-0.5 rounded text-sm">--pretty</code> for humans.
+      </p>
+      <pre class="bg-code-bg border border-code-border p-4 rounded text-sm overflow-x-auto leading-relaxed"><code><span class="text-muted"># Same write as above, from a pipe</span>
+echo <span class="text-warm">"Dan prefers terse responses."</span> | loam-cli write \
+  --agent mabus --type observation \
+  --tags dan,preference --confidence 0.95
+
+<span class="text-muted"># Search; emits a JSON array on stdout</span>
+loam-cli search --query <span class="text-warm">"terse responses"</span> --tags preference
+
+<span class="text-muted"># Time-ordered recall</span>
+loam-cli recent --type learning --limit 10
+
+<span class="text-muted"># Per-agent summary</span>
+loam-cli ls --agent mabus</code></pre>
+      <p class="text-muted leading-relaxed mt-3 text-sm">
+        Full subcommand reference: <a href="/docs/api" class="text-accent no-underline hover:underline">API reference</a>.
       </p>
     </section>
 
