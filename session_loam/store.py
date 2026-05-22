@@ -107,6 +107,11 @@ class EntryNotFound(KeyError):
     """Raised by :meth:`Store.get` when no entry matches the given id."""
 
 
+class EntryAlreadyExists(ValueError):
+    """Raised by :meth:`Store.import_entry` when the id is already present
+    and ``replace=False``."""
+
+
 def _utcnow_iso() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -362,6 +367,159 @@ class Store:
             limit=limit,
             reinforce=reinforce,
         )
+
+    def prune(
+        self,
+        *,
+        type: str | None = None,
+        tags: Iterable[str] | None = None,
+        older_than: str | None = None,
+        access_count_below: int | None = None,
+        only_superseded: bool = False,
+        dry_run: bool = True,
+    ) -> list[str]:
+        """Delete entries matching the given filter. Returns deleted ids.
+
+        At least one of ``type``, ``tags``, ``older_than``, ``access_count_below``,
+        or ``only_superseded`` must be specified — refuses to wipe the store
+        with no filter set.
+
+        With ``dry_run=True`` (the default), returns the ids that WOULD be
+        deleted without modifying the database.
+
+        Filters are ANDed. ``older_than`` is an ISO-8601 cutoff:
+        ``created_at < older_than``.
+        """
+        if not any((type, tags, older_than, access_count_below, only_superseded)):
+            raise ValueError(
+                "prune() refuses to delete without a filter; specify at least one of "
+                "type, tags, older_than, access_count_below, only_superseded"
+            )
+
+        where_clauses: list[str] = ["1=1"]
+        params: list[object] = []
+        if type is not None:
+            where_clauses.append("type = ?")
+            params.append(type)
+        if older_than is not None:
+            where_clauses.append("created_at < ?")
+            params.append(older_than)
+        if access_count_below is not None:
+            where_clauses.append("access_count < ?")
+            params.append(access_count_below)
+        if only_superseded:
+            where_clauses.append("superseded_by IS NOT NULL")
+        if tags:
+            normalized = sorted({t.strip().lower() for t in tags if t and t.strip()})
+            if normalized:
+                placeholders = ",".join("?" * len(normalized))
+                where_clauses.append(
+                    f"""id IN (
+                        SELECT entry_id FROM entry_tag
+                         WHERE tag IN ({placeholders})
+                         GROUP BY entry_id
+                        HAVING COUNT(DISTINCT tag) = ?
+                    )"""
+                )
+                params.extend(normalized)
+                params.append(len(normalized))
+
+        where_sql = " AND ".join(where_clauses)
+        select_sql = f"SELECT id FROM entry WHERE {where_sql}"
+        ids = [r[0] for r in self._conn.execute(select_sql, params).fetchall()]
+
+        if dry_run or not ids:
+            return ids
+
+        with self._conn:
+            self._conn.execute("BEGIN")
+            placeholders = ",".join("?" * len(ids))
+            # entry_tag rows go via FK CASCADE; FTS rows go via the
+            # entry_after_delete trigger. Both are wired in the schema.
+            self._conn.execute(
+                f"DELETE FROM entry WHERE id IN ({placeholders})",
+                ids,
+            )
+
+        return ids
+
+    def iter_export(self) -> "Iterable[Entry]":
+        """Iterate over every entry in the store, ordered by ``created_at``.
+
+        Useful as the producer side of ``loam-cli export``. Does not reinforce.
+        """
+        rows = self._conn.execute(
+            "SELECT * FROM entry ORDER BY created_at ASC, id ASC"
+        )
+        for row in rows:
+            yield _row_to_entry(row)
+
+    def import_entry(self, entry: Entry, *, replace: bool = False) -> Entry:
+        """Insert a fully-formed Entry, preserving id / created_at / access_count.
+
+        With ``replace=False`` (default), raises :class:`EntryAlreadyExists`
+        if an entry with the same id already exists. With ``replace=True``,
+        overwrites in place (and re-syncs the tag junction).
+
+        ``entry.id``, ``entry.created_at``, ``entry.last_accessed``,
+        ``entry.access_count`` must all be set — this is a restore path,
+        not a normal write.
+        """
+        if not entry.id or not entry.created_at or not entry.last_accessed:
+            raise ValueError(
+                "import_entry requires id, created_at, last_accessed to be set "
+                "(use write() for new entries)"
+            )
+        if entry.agent is None:
+            entry.agent = self.agent
+
+        existing = self._conn.execute(
+            "SELECT 1 FROM entry WHERE id = ?", (entry.id,)
+        ).fetchone()
+        if existing and not replace:
+            raise EntryAlreadyExists(entry.id)
+
+        tags_json = json.dumps(list(entry.tags)) if entry.tags else None
+        attestations_json = (
+            json.dumps(list(entry.attestations)) if entry.attestations else None
+        )
+        metadata_json = json.dumps(dict(entry.metadata)) if entry.metadata else None
+
+        with self._conn:
+            self._conn.execute("BEGIN")
+            if existing:
+                # FK CASCADE on entry_tag means the DELETE clears the junction;
+                # the after_delete trigger clears FTS too. Then we re-insert.
+                self._conn.execute("DELETE FROM entry WHERE id = ?", (entry.id,))
+
+            self._conn.execute(
+                """
+                INSERT INTO entry (
+                    id, agent, type, content, source, confidence, tags,
+                    created_at, last_accessed, access_count,
+                    supersedes, superseded_by, attestations, metadata
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    entry.id,
+                    entry.agent,
+                    entry.type,
+                    entry.content,
+                    entry.source,
+                    entry.confidence,
+                    tags_json,
+                    entry.created_at,
+                    entry.last_accessed,
+                    entry.access_count,
+                    entry.supersedes,
+                    entry.superseded_by,
+                    attestations_json,
+                    metadata_json,
+                ),
+            )
+            self._insert_tags(entry.id, entry.tags)
+
+        return entry
 
     def _insert_tags(self, entry_id: str, tags: Iterable[str]) -> None:
         seen: set[str] = set()

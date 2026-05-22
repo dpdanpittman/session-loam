@@ -30,6 +30,7 @@ from session_loam.search import DEFAULT_WEIGHTS, RankWeights
 from session_loam.store import (
     DEFAULT_BASE_DIR,
     ENV_BASE_DIR,
+    EntryAlreadyExists,
     EntryNotFound,
     SchemaVersionMismatch,
     Store,
@@ -322,6 +323,160 @@ def _render_ls(summaries: list[dict]) -> str:
 
 
 # ---------------------------------------------------------------------------
+# supersede
+# ---------------------------------------------------------------------------
+
+def cmd_supersede(args: argparse.Namespace) -> int:
+    content = _read_content(args.content)
+    if not content:
+        print("error: --content was empty (and no stdin)", file=sys.stderr)
+        return 2
+
+    with _open_store(args) as store:
+        try:
+            predecessor = store.get(args.from_id) if not args.no_reinforce_predecessor else None
+            if predecessor is None:
+                # Read without reinforce
+                row = store._conn.execute(
+                    "SELECT * FROM entry WHERE id = ?", (args.from_id,)
+                ).fetchone()
+                if row is None:
+                    raise EntryNotFound(args.from_id)
+                from session_loam.store import _row_to_entry
+                predecessor = _row_to_entry(row)
+        except EntryNotFound:
+            print(f"error: predecessor not found: {args.from_id}", file=sys.stderr)
+            return 1
+
+        type_ = args.type if args.type is not None else predecessor.type
+        tags = _split_csv(args.tags) if args.tags is not None else list(predecessor.tags)
+        source = args.source if args.source is not None else predecessor.source
+        confidence = args.confidence if args.confidence is not None else predecessor.confidence
+
+        entry = Entry(
+            type=type_,
+            content=content,
+            tags=tags or [],
+            source=source,
+            confidence=confidence,
+            supersedes=predecessor.id,
+            metadata=json.loads(args.metadata) if args.metadata else {},
+        )
+        written = store.write(entry)
+
+    _emit(_entry_dict(written), pretty=args.pretty)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# prune
+# ---------------------------------------------------------------------------
+
+def cmd_prune(args: argparse.Namespace) -> int:
+    tags = _split_csv(args.tags)
+    try:
+        with _open_store(args) as store:
+            ids = store.prune(
+                type=args.type,
+                tags=tags,
+                older_than=args.older_than,
+                access_count_below=args.access_count_below,
+                only_superseded=args.only_superseded,
+                dry_run=not args.apply,
+            )
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    payload = {
+        "dry_run": not args.apply,
+        "count": len(ids),
+        "ids": ids,
+    }
+    _emit(payload, pretty=args.pretty)
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# export
+# ---------------------------------------------------------------------------
+
+def cmd_export(args: argparse.Namespace) -> int:
+    with _open_store(args) as store:
+        for entry in store.iter_export():
+            # JSONL: one JSON object per line. Compact form (no indent).
+            print(json.dumps(_entry_dict(entry), default=str))
+    return 0
+
+
+# ---------------------------------------------------------------------------
+# import
+# ---------------------------------------------------------------------------
+
+def cmd_import(args: argparse.Namespace) -> int:
+    if args.file and args.file != "-":
+        src = Path(args.file).read_text()
+    else:
+        src = sys.stdin.read()
+
+    count_added = 0
+    count_replaced = 0
+    count_skipped = 0
+    errors: list[dict] = []
+
+    with _open_store(args) as store:
+        for lineno, raw in enumerate(src.splitlines(), 1):
+            line = raw.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError as exc:
+                errors.append({"line": lineno, "error": f"invalid JSON: {exc}"})
+                continue
+            try:
+                entry = _entry_from_dict(obj)
+                store.import_entry(entry, replace=args.replace)
+                if args.replace:
+                    count_replaced += 1
+                else:
+                    count_added += 1
+            except EntryAlreadyExists:
+                count_skipped += 1
+            except (ValueError, TypeError) as exc:
+                errors.append({"line": lineno, "id": obj.get("id"), "error": str(exc)})
+
+    payload = {
+        "added": count_added,
+        "replaced": count_replaced,
+        "skipped_existing": count_skipped,
+        "errors": errors,
+    }
+    _emit(payload, pretty=args.pretty)
+    return 0 if not errors else 4
+
+
+def _entry_from_dict(obj: dict) -> Entry:
+    """Reverse of asdict(Entry). Tolerant of missing keys with sensible defaults."""
+    return Entry(
+        type=obj["type"],
+        content=obj["content"],
+        id=obj.get("id"),
+        agent=obj.get("agent"),
+        source=obj.get("source"),
+        confidence=obj.get("confidence"),
+        tags=list(obj.get("tags") or []),
+        created_at=obj.get("created_at"),
+        last_accessed=obj.get("last_accessed"),
+        access_count=int(obj.get("access_count") or 0),
+        supersedes=obj.get("supersedes"),
+        superseded_by=obj.get("superseded_by"),
+        attestations=list(obj.get("attestations") or []),
+        metadata=dict(obj.get("metadata") or {}),
+    )
+
+
+# ---------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------
 
@@ -392,6 +547,56 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--json", action="store_true", help="Emit machine-readable JSON")
     _add_global_args(p, path_help="Override base directory (default: $LOAM_BASE_DIR or ~/.session-loam/)")
     p.set_defaults(func=cmd_ls)
+
+    # supersede
+    p = sub.add_parser(
+        "supersede",
+        help="write a replacement entry that supersedes an existing one (audit-preserving edit)",
+    )
+    p.add_argument("--from-id", required=True, help="ID of the predecessor entry")
+    p.add_argument("--content", help="New body. Use '-' or omit to read stdin.")
+    p.add_argument("--type", help="Override type (default: inherit from predecessor)")
+    p.add_argument("--tags", help="Override tag list (default: inherit). Comma-separated.")
+    p.add_argument("--source", help="Override source (default: inherit)")
+    p.add_argument("--confidence", type=float, help="Override confidence (default: inherit)")
+    p.add_argument("--metadata", help="JSON object for the new entry's metadata")
+    p.add_argument(
+        "--no-reinforce-predecessor",
+        action="store_true",
+        help="Don't bump access_count on the predecessor when reading it",
+    )
+    _add_global_args(p)
+    p.set_defaults(func=cmd_supersede)
+
+    # prune
+    p = sub.add_parser(
+        "prune",
+        help="delete entries matching a filter (dry-run by default; pass --apply to commit)",
+    )
+    p.add_argument("--type", help="Match entries with this type")
+    p.add_argument("--tags", help="Match entries carrying all these tags (CSV)")
+    p.add_argument("--older-than", help="ISO-8601: match entries with created_at < this")
+    p.add_argument("--access-count-below", type=int, help="Match entries with access_count < N")
+    p.add_argument("--only-superseded", action="store_true", help="Only delete entries that have been superseded")
+    p.add_argument("--apply", action="store_true", help="Actually delete (without this, dry-run)")
+    _add_global_args(p)
+    p.set_defaults(func=cmd_prune)
+
+    # export
+    p = sub.add_parser("export", help="dump every entry as JSONL on stdout (ordered by created_at)")
+    _add_global_args(p)
+    p.set_defaults(func=cmd_export)
+
+    # import
+    p = sub.add_parser("import", help="read JSONL on stdin (or --file), restore entries preserving id/timestamps")
+    p.add_argument("--file", help="JSONL file path. Default: stdin.")
+    p.add_argument(
+        "--replace",
+        action="store_true",
+        help="Overwrite existing entries by id. Default: skip duplicates.",
+    )
+    _add_global_args(p)
+    p.set_defaults(func=cmd_import)
 
     return parser
 
